@@ -1,0 +1,205 @@
+---
+title: "V. dahliae lineage 4B symp asymp hosts"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r setwd libraries}
+#set workdirectory -> session -> select working directory, or by commands:
+setwd("/Users/lauradelsolbautistajalon/Desktop/SNP_files_thesis2020/")
+library("vcfR")
+library(poppr)
+library(ape)
+library(RColorBrewer)
+vcf.4B.nomiss.bi <- read.vcfR("4B_paisra_nomissing_norepre_biallele.vcf") # 1,343 SNPs
+pop.data <- read.table("4B_noreptaxa.txt", sep ="", header = TRUE)
+```
+
+```{r genind object}
+library(adegenet)
+genind_4B <- vcfR2genind(vcf.4B.nomiss.bi) # 1,343 biallelic SNPs
+class(genind_4B)
+genind_4B
+pop(genind_4B) <- pop.data$symptom
+ploidy(genind_4B) <- 1
+```
+
+```{r genlight}
+#converting dataset into a genlight object
+gl_4B <- vcfR2genlight(vcf.4B.nomiss.bi) # 1,343 biallelic SNPs
+ploidy(gl_4B) <- 1
+pop(gl_4B) <- pop.data$symptom
+gl_4B$pop
+```
+
+### ***** Find clusters and DAPC on genlight object *********
+
+```{r DAPC}
+library(adegenet)
+# select 100 PCs and 4 BIC value 
+set.seed(730922)
+clust_gl_4B <- find.clusters.genlight(gl_4B, max.n.clust = 60, n.pca = 100, n.clust = 4)
+#
+#Using 4 clusters from clust_gl_4B
+set.seed(2894444)
+gl.dapc <- dapc(gl_4B, clust_gl_4B$grp, n.pca = 2, n.da = 2)
+#
+pdf("dapc_4clusters_2pc_black_label.pdf")
+set.seed(4865)
+scatter.dapc(gl.dapc, col = "Black", cex = 1.5, scree.pca = TRUE, posi.pca = "topright", scree.da = TRUE, cleg = 0.75, ratio.pca = 0, pch = 17:20, label.inds = TRUE, clabel = 0, legend = TRUE, posi.leg = "bottomleft", txt.leg = c("PA_2", "PA_3", "Israel", "PA_1"))
+dev.off()
+#
+pdf("dapc_4clusters_2pc_black.pdf")
+set.seed(4865)
+scatter.dapc(gl.dapc, col = "Black", cex = 1.5, scree.pca = TRUE, posi.pca = "topright", scree.da = TRUE, cleg = 0.75, ratio.pca = 0, pch = 17:20, label.inds = TRUE, clabel = 0)
+dev.off()
+```
+
+#### **************  Minimum spanning network  ******************************
+
+```{r MSN plot by genetic clusters}
+library(igraph)
+pop(gl_4B) <- clust_gl_4B$grp
+popNames(gl_4B) <- c("PA_2", "PA_3", "Israel", "PA_1")
+
+gl_4B_sub <- popsub(gl_4B, blacklist = character(0))
+gl_4B_nomiss <- missingno(gl_4B, type = 'mean')
+gl_4B_dist <- bitwise.dist(gl_4B_nomiss, percent = TRUE, mat = FALSE, missing_match = TRUE, scale_missing = FALSE, euclidean = FALSE, differences_only = FALSE, threads = 0)
+min_span_net <- poppr.msn(gl_4B_sub, gl_4B_dist, showplot = FALSE, include.ties = TRUE)
+#
+set.seed(48)
+pdf("msn_norep_clusters.pdf")
+plot_poppr_msn(gl_4B,
+               min_span_net,
+               inds = "NONE",
+               mlg = FALSE,
+               gadj = 35,
+               nodescale = 52,
+               palette = rainbow,
+               cutoff = NULL,
+               quantiles = FALSE,
+               beforecut = TRUE,
+               pop.leg = TRUE,
+               size.leg = FALSE,
+               scale.leg = TRUE,
+               layfun = igraph::layout_nicely)
+dev.off()
+```
+
+```{r MSN plot by symptoms}
+library(igraph)
+pop(gl_4B) <- pop.data$symptom
+popNames(gl_4B) <- c("Asymptomatic", "Symptomatic")
+
+gl_4B_sub <- popsub(gl_4B, blacklist = character(0))
+gl_4B_nomiss <- missingno(gl_4B, type = 'mean')
+gl_4B_dist <- bitwise.dist(gl_4B_nomiss, percent = TRUE, mat = FALSE, missing_match = TRUE, scale_missing = FALSE, euclidean = FALSE, differences_only = FALSE, threads = 0)
+min_span_net <- poppr.msn(gl_4B_sub, gl_4B_dist, showplot = FALSE, include.ties = TRUE)
+pdf("msn_norep_symptoms.pdf")
+set.seed(48)
+plot_poppr_msn(gl_4B,
+               min_span_net,
+               inds = "NONE",
+               mlg = FALSE,
+               gadj = 35,
+               nodescale = 52,
+               palette = rainbow,
+               cutoff = NULL,
+               quantiles = FALSE,
+               beforecut = TRUE,
+               pop.leg = TRUE,
+               size.leg = FALSE,
+               scale.leg = TRUE,
+               layfun = igraph::layout_nicely)
+dev.off()
+```
+
+# ####                              AMOVA and Fst
+
+```{r amova on populations based on symptomatology}
+pop(genind_4B) <- pop.data$symptom
+symptom<-pop.data$symptom
+strata(genind_4B) <- data.frame(symptom = pop.data$symptom)
+setPop(genind_4B)<- ~symptom
+
+amova.4B <- poppr.amova(genind_4B, ~symptom, filter = TRUE, threshold = 0.1)
+amova.4B
+set.seed(19347) # significance testing
+amova.4B.signif <- randtest(amova.4B, nrepet = 999)
+plot(amova.4B.signif)
+amova.4B.signif
+```
+
+****************       Israel, PA1, PA2, PA3 asymp vs. symp isolates
+
+```{r amova on each genetic cluster for symp vs. asymp populations}
+vcfisra <- read.vcfR("Israel4B_nomiss.vcf") # 
+vcfpa1 <- read.vcfR("PA1_4B_nomiss.vcf")
+vcfpa2 <- read.vcfR("PA2_4B_nomiss.vcf")
+vcfpa3 <- read.vcfR("PA3_4B_nomiss.vcf")
+
+pop.data.isra <- read.table("Isra_info.txt", sep ="", header = TRUE)
+pop.data.pa1 <- read.table("PA1_info.txt", sep ="", header = TRUE)
+pop.data.pa2 <- read.table("PA2_info.txt", sep ="", header = TRUE)
+pop.data.pa3 <- read.table("PA3_info.txt", sep ="", header = TRUE)
+
+gen.isra <- vcfR2genind(vcfisra)
+gen.pa1 <- vcfR2genind(vcfpa1)
+gen.pa2 <- vcfR2genind(vcfpa2)
+gen.pa3 <- vcfR2genind(vcfpa3)
+
+pop(gen.isra) <- pop.data.isra$symptom
+pop(gen.pa1) <- pop.data.pa1$symptom
+pop(gen.pa2) <- pop.data.pa2$symptom
+pop(gen.pa3) <- pop.data.pa3$symptom
+
+ploidy(gen.isra)<- 1
+ploidy(gen.pa1)<- 1
+ploidy(gen.pa2)<- 1
+ploidy(gen.pa3)<- 1
+
+
+############    Israel 
+symptom<-pop.data.isra$symptom
+strata(gen.isra) <- data.frame(symptom = pop.data.isra$symptom)
+amova.isra <- poppr.amova(gen.isra, ~symptom, filter = TRUE, threshold = 0.1)
+amova.isra
+set.seed(1947) # significance testing
+amova.isra.signif <- randtest(amova.isra, nrepet = 999)
+plot(amova.isra.signif)
+amova.isra.signif
+
+############       PA1
+symptom<-pop.data.pa1$symptom
+strata(gen.pa1) <- data.frame(symptom = pop.data.pa1$symptom)
+amova.pa1 <- poppr.amova(gen.pa1, ~symptom, filter = TRUE, threshold = 0.1)
+amova.pa1
+set.seed(1947) # significance testing
+amova.pa1.signif <- randtest(amova.pa1, nrepet = 999)
+plot(amova.pa1.signif)
+amova.pa1.signif
+
+#############           PA2
+symptom<-pop.data.pa2$symptom
+strata(gen.pa2) <- data.frame(symptom = pop.data.pa2$symptom)
+amova.pa2 <- poppr.amova(gen.pa2, ~symptom, filter = TRUE, threshold = 0.1)
+amova.pa2
+set.seed(1947) # significance testing
+amova.pa2.signif <- randtest(amova.pa2, nrepet = 999)
+plot(amova.pa2.signif)
+amova.pa2.signif
+
+################     PA 3
+symptom<-pop.data.pa3$symptom
+strata(gen.pa3) <- data.frame(symptom = pop.data.pa3$symptom)
+amova.pa3 <- poppr.amova(gen.pa3, ~symptom, filter = TRUE, threshold = 0.1)
+amova.pa3
+set.seed(1947) # significance testing
+amova.pa3.signif <- randtest(amova.pa3, nrepet = 999)
+plot(amova.pa3.signif)
+amova.pa3.signif
+```
+
+
