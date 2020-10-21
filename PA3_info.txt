@@ -1,0 +1,2 @@
+AccessID	country	region	lineage	symptom	cluster
+T006	PA	PA	4B	symptomatic	PA3U120	PA	PA	4B	asymptomatic	PA3U199	PA	PA	4B	asymptomatic	PA3
