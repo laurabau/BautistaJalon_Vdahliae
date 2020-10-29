@@ -24,14 +24,20 @@ Vdahliae4B_BautistaJalon2020.Rmd
 
 ## SNPs
   Israel4B_nomiss.vcf
+  
   PA1_4B_nomiss.vcf
+  
   PA2_4B_nomiss.vcf
+  
   PA3_4B_nomiss.vcf
  
 ## isolate information
   Isra_info.txt
+  
   PA1_info.txt
+  
   PA2_info.txt
+  
   PA3_info.txt
 
 ## R markdown script
